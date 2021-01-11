@@ -15,11 +15,8 @@ def getUpdates(begin, end, parent, type, offset):
     with open('list', 'wb+') as f:
         f.write(resp.content)
     dom = md.parse('list')
-    print(1)
-    for id in dom.getElementsByTagName('rest:id'):
-        print(id)
+    for id in dom.getElementsByTagName('rest:identifier'):
         updates.append(id.firstChild.nodeValue)
-        print(id.firstChild.nodeValue)
     return updates
 
 def getUpdatedItems(begin, end, parent, type):
@@ -45,8 +42,10 @@ def getWeeklyUpdates():
     weekago = datetime.datetime.now() - datetime.timedelta(days=7)    
     dayago = datetime.datetime.now() - datetime.timedelta(days=1)    
     now = datetime.datetime.now()
-    for journal in getUpdatedItems(weekago, now, 'journals', 'journal'):
-        for article in getUpdatedItems(weekago, now, journal, 'article'):
+    for journal in getUpdatedItems(dayago, now, 'journals', 'journal'):
+        print (journal)
+        for article in getUpdatedItems(dayago, now, journal, 'article'):
+            print (article)
             checkArticle(article)
 
 getWeeklyUpdates()
