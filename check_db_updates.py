@@ -1,38 +1,54 @@
 import datetime
 import requests as req
 import xml.dom.minidom as md
+import datetime
+import cx_Oracle
 
 prod_host = "10.200.0.61"
 pre_prod_host = "aus-lndssapp-02.wiley.com"
 
+# connection = cx_Oracle.connect("DSS_DEV_DD", "DSS_DEV_DD", "AUS-LNDSSDBQ-02.wiley.com:1592/DSSQA")
+connection = cx_Oracle.connect("DSS", "DSS", "AUS-LNDSSDBP-03.wiley.com:1593/DSSPRD")
+
 orig_report = open("orig1", "w")
 copied_report = open("copied1", "w")
 
-def getUpdates(begin, end, parent, type, offset):
-    before = end.strftime("%Y%m%dT%H00")
-    after = begin.strftime("%Y%m%dT%H00")
+def getUpdates(begin, end, parent, type):
+
+    print (f"GETTING UPDATES for interval from {begin} to {end} for {type} in {parent}")
+
+    cursor = connection.cursor()
     updates = []
-    page_url = f"http://{prod_host}:8080/resteasy/id/{parent}/lastupload?type={type}&size=1000&after={after}&before={before}&offset={offset}"
-    print(page_url)
-    resp = req.request(method='GET', url=(page_url))
-    with open('list', 'wb+') as f:
-        f.write(resp.content)
-    dom = md.parse('list')
-    for id in dom.getElementsByTagName('rest:identifier'):
-        updates.append(id.firstChild.nodeValue)
+
+    sql = """SELECT id
+            FROM Content_Item
+            WHERE content_item_type_code = :type
+            AND last_upload_date > :after 
+            AND last_upload_date < :before"""
+
+    cursor.execute(sql, after=begin, before=end, type=type.upper())
+
+    for row in cursor:
+        updates.append(row[0])
+
     return updates
 
 def getUpdatedItems(begin, end, parent, type):
-    list = []
-    offset = 0
-    page = getUpdates(begin, end, parent, type, offset)
-    while len(page) > 0:
-        list.extend(page)
-        offset += 1000
-        page = getUpdates(begin, end, parent, type, offset)
-    return list
+    print(f"GETTING UPDATING ITEMS FROM {begin} to {end}")
+    return getUpdates(begin, end, parent, type)
 
-def checkArticle(article):
+def checkArticle(article):    
+    print("CHECKING ARTICLE", article)
+
+    sql = """SELECT id, 
+            FROM Content_Item
+            WHERE content_item_type_code = :type
+            AND last_upload_date > :after 
+            AND last_upload_date < :before"""
+
+    cursor.execute(sql, after=begin, before=end, type=type.upper())
+
+
     orig_article_metadata_url = f"http://{prod_host}:8080/resteasy/id/{article}/metadata"
     orig_resp = req.request(method='GET', url=(orig_article_metadata_url))
     copied_article_metadata_url = f"http://{pre_prod_host}:8080/resteasy/id/{article}/metadata"
@@ -46,6 +62,7 @@ def checkArticle(article):
         print(article, 'ORIG', orig_resp.status_code, 'COPY', copied_resp.status_code)
 
 def getArticleData(article, xmlStr):
+    print("GETTING ARTICLE DATA", article)
     try:
         xml = md.parseString(xmlStr)
         files = []        
@@ -84,9 +101,16 @@ def getWeeklyUpdates():
         print(begin_part)
         print(end_part)
         print(end)
-        for article in getUpdatedItems(begin_part, end_part, 'journals', 'article'):
-            print (x, article)
-            checkArticle(article)
+        print('>>>', x)
+        items = getUpdatedItems(begin_part, end_part, 'journals', 'article')
+        print('<<<', x)
+        if items is not None:
+            print('XXXXX', x)
+            for article in items:                    
+                print (x, article)
+                checkArticle(article)
+        else:
+            print('no items found')
     orig_report.close()    
     copied_report.close()
     print(started, datetime.datetime.now())
