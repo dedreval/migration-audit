@@ -7,10 +7,6 @@ connection = cx_Oracle.connect("DSS_DEV_DD", "DSS_DEV_DD", "AUS-LNDSSDBQ-02.wile
 # Obtain a cursor
 cursor = connection.cursor()
 
-# Data for binding
-managerId = 145
-firstName = "Peter"
-
 # Execute the query
 sql = """SELECT *
          FROM Content_Item
